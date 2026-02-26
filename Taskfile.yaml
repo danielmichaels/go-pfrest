@@ -11,12 +11,12 @@ tasks:
   lint:
     desc: Run golangci-lint
     cmds:
-      - golangci-lint run ./...
+      - golangci-lint run ./... {{.CLI_ARGS}}
 
   test:
     desc: Run tests
     cmds:
-      - go test ./...
+      - go test ./... {{.CLI_ARGS}}
 
   build:
     desc: Build all packages and examples

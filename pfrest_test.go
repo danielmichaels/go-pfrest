@@ -15,7 +15,7 @@ func newTestServer(t *testing.T, wantAuth string) *httptest.Server {
 			t.Errorf("Authorization header = %q, want %q", got, wantAuth)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"code":    200,
 			"status":  "ok",
 			"message": "test",
