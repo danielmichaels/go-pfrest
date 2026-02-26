@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -v -count=1
+
+      - name: Build examples
+        run: go build ./examples/...
+
+  generate-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install oapi-codegen
+        run: go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1
+
+      - name: Run specprep
+        run: go run ./tools/specprep specs/v2.7/openapi.json specs/v2.7/openapi-processed.json
+
+      - name: Generate types
+        run: oapi-codegen --config api/oapi-types.cfg.yaml specs/v2.7/openapi-processed.json
+
+      - name: Generate client
+        run: oapi-codegen --config api/oapi-client.cfg.yaml specs/v2.7/openapi-processed.json
+
+      - name: Check no diff
+        run: git diff --exit-code api/
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest

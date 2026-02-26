@@ -1,0 +1,38 @@
+version: "3"
+
+tasks:
+  generate:
+    desc: Run spec preprocessor and oapi-codegen
+    cmds:
+      - go run ./tools/specprep specs/v2.7/openapi.json specs/v2.7/openapi-processed.json
+      - oapi-codegen --config api/oapi-types.cfg.yaml specs/v2.7/openapi-processed.json
+      - oapi-codegen --config api/oapi-client.cfg.yaml specs/v2.7/openapi-processed.json
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./...
+
+  build:
+    desc: Build all packages and examples
+    cmds:
+      - go build ./...
+      - go build ./examples/...
+
+  clean:
+    desc: Remove generated files
+    cmds:
+      - rm -f api/types.gen.go api/client.gen.go
+      - rm -f specs/v2.7/openapi-processed.json
+
+  check:
+    desc: Run lint, test, and build
+    cmds:
+      - task: lint
+      - task: test
+      - task: build
