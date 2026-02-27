@@ -203,6 +203,28 @@ func TestMergeHeaders(t *testing.T) {
 	})
 }
 
+func TestContentTypeNotSetForGetWithoutBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Empty(t, r.Header.Get(contentTypeHeader), "GET without body should not set Content-Type")
+		assert.Equal(t, "id=42", r.URL.RawQuery)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"42"}`))
+	}))
+	defer server.Close()
+
+	caller := NewCaller(&CallerParams{Client: server.Client()})
+	var response *Response
+	err := caller.Call(context.Background(), &CallParams{
+		URL:      server.URL + "?id=42",
+		Method:   http.MethodGet,
+		Headers:  make(http.Header),
+		Response: &response,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, &Response{Id: "42"}, response)
+}
+
 // newTestServer returns a new *httptest.Server configured with the
 // given test parameters.
 func newTestServer(t *testing.T, tc *TestCase) *httptest.Server {
@@ -210,7 +232,9 @@ func newTestServer(t *testing.T, tc *TestCase) *httptest.Server {
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, tc.giveMethod, r.Method)
-				assert.Equal(t, contentType, r.Header.Get(contentTypeHeader))
+				if tc.giveRequest != nil {
+					assert.Equal(t, contentType, r.Header.Get(contentTypeHeader))
+				}
 				for header, value := range tc.giveHeader {
 					assert.Equal(t, value, r.Header.Values(header))
 				}
