@@ -7,7 +7,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/danielmichaels/go-pfrest"
+	pfrest "github.com/danielmichaels/go-pfrest"
+	pfclientapi "github.com/danielmichaels/go-pfrest/pkg/client"
+	client "github.com/danielmichaels/go-pfrest/pkg/client/client"
+	"github.com/danielmichaels/go-pfrest/pkg/client/option"
 )
 
 func main() {
@@ -23,43 +26,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := pfrest.Config{
-		BaseURL:            *url,
-		InsecureSkipVerify: *insecure,
+	opts := []option.RequestOption{
+		option.WithBaseURL(*url),
+		option.WithHTTPClient(pfrest.TLSClient(*insecure)),
 	}
 	switch {
 	case *apiKey != "":
-		cfg.APIKey = *apiKey
+		opts = append(opts, option.WithAPIKey(*apiKey))
 	case *pass != "":
-		cfg.BasicAuth = &pfrest.BasicAuthConfig{Username: *user, Password: *pass}
+		opts = append(opts, option.WithBasicAuth(*user, *pass))
 	default:
 		log.Fatal("provide -api-key or -pass for authentication")
 	}
 
-	client, err := pfrest.NewClient(cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	c := client.NewClient(opts...)
 	ctx := context.Background()
 
-	resp, err := client.Raw().GetStatusServicesEndpointWithResponse(ctx, nil)
+	resp, err := c.Status.GetStatusServicesEndpoint(ctx, &pfclientapi.GetStatusServicesEndpointRequest{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := pfrest.CheckResponse(resp.HTTPResponse); err != nil {
-		log.Fatal(err)
-	}
 
-	if resp.JSON200 == nil || resp.JSON200.Data == nil {
-		fmt.Println("No services data returned")
-		return
-	}
+	fmt.Printf("Total services: %d\n\n", len(resp.Data))
 
-	services := *resp.JSON200.Data
-	fmt.Printf("Total services: %d\n\n", len(services))
-
-	for _, svc := range services {
+	for _, svc := range resp.Data {
 		name := ""
 		if svc.Name != nil {
 			name = *svc.Name
@@ -68,12 +58,8 @@ func main() {
 		if svc.Description != nil {
 			descr = *svc.Description
 		}
-		running := false
-		if svc.Status != nil {
-			running = *svc.Status
-		}
 		state := "stopped"
-		if running {
+		if svc.Status != nil && *svc.Status {
 			state = "running"
 		}
 		fmt.Printf("  %-20s %-10s %s\n", name, state, descr)

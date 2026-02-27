@@ -8,7 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/danielmichaels/go-pfrest"
+	pfrest "github.com/danielmichaels/go-pfrest"
+	pfclientapi "github.com/danielmichaels/go-pfrest/pkg/client"
+	client "github.com/danielmichaels/go-pfrest/pkg/client/client"
+	"github.com/danielmichaels/go-pfrest/pkg/client/option"
 )
 
 func main() {
@@ -24,46 +27,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := pfrest.Config{
-		BaseURL:            *url,
-		InsecureSkipVerify: *insecure,
+	opts := []option.RequestOption{
+		option.WithBaseURL(*url),
+		option.WithHTTPClient(pfrest.TLSClient(*insecure)),
 	}
 	switch {
 	case *apiKey != "":
-		cfg.APIKey = *apiKey
+		opts = append(opts, option.WithAPIKey(*apiKey))
 	case *pass != "":
-		cfg.BasicAuth = &pfrest.BasicAuthConfig{Username: *user, Password: *pass}
+		opts = append(opts, option.WithBasicAuth(*user, *pass))
 	default:
 		log.Fatal("provide -api-key or -pass for authentication")
 	}
 
-	client, err := pfrest.NewClient(cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	c := client.NewClient(opts...)
 	ctx := context.Background()
 
-	resp, err := client.Raw().GetFirewallRulesEndpointWithResponse(ctx, nil)
+	resp, err := c.Firewall.GetFirewallRulesEndpoint(ctx, &pfclientapi.GetFirewallRulesEndpointRequest{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := pfrest.CheckResponse(resp.HTTPResponse); err != nil {
-		log.Fatal(err)
-	}
 
-	if resp.JSON200 == nil || resp.JSON200.Data == nil {
-		fmt.Println("No firewall rules data returned")
-		return
-	}
+	fmt.Printf("Total firewall rules: %d\n\n", len(resp.Data))
 
-	rules := *resp.JSON200.Data
-	fmt.Printf("Total firewall rules: %d\n\n", len(rules))
-
-	for i, rule := range rules {
+	for i, rule := range resp.Data {
 		iface := "<none>"
 		if rule.Interface != nil {
-			iface = strings.Join(*rule.Interface, ",")
+			iface = strings.Join(rule.Interface, ",")
 		}
 		descr := ""
 		if rule.Descr != nil {

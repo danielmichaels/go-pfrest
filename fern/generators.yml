@@ -1,0 +1,16 @@
+api:
+  specs:
+    - openapi: ../specs/v2.7/openapi-clean.json
+default-group: local
+groups:
+  local:
+    generators:
+      - name: fernapi/fern-go-sdk
+        output:
+          location: local-file-system
+          path: ../pkg/client
+        config:
+          packageName: pfclientapi
+          module:
+            path: github.com/danielmichaels/go-pfrest/pkg/client
+        version: 0.13.0

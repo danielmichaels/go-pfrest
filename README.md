@@ -2,7 +2,7 @@
 
 Go SDK for the [pfSense REST API](https://github.com/jaredhendrickson13/pfsense-api) v2.
 
-Generated from the pfSense REST API v2.7.2 OpenAPI specification covering all 258 endpoints (677 operations) with fully typed request/response structs.
+Generated from the pfSense REST API v2.7.2 OpenAPI specification using [Fern](https://buildwithfern.com). Provides modular, per-service clients with built-in retries and typed errors.
 
 ## Installation
 
@@ -20,120 +20,98 @@ import (
     "fmt"
     "log"
 
-    "github.com/danielmichaels/go-pfrest"
+    pfrest "github.com/danielmichaels/go-pfrest"
+    "github.com/danielmichaels/go-pfrest/pkg/client/client"
+    "github.com/danielmichaels/go-pfrest/pkg/client/option"
 )
 
 func main() {
-    client, err := pfrest.NewClient(pfrest.Config{
-        BaseURL:            "192.168.1.1",
-        InsecureSkipVerify: true,
-        BasicAuth: &pfrest.BasicAuthConfig{
-            Username: "admin",
-            Password: "pfsense",
-        },
-    })
+    c := client.NewClient(
+        option.WithBaseURL("https://192.168.1.1"),
+        option.WithBasicAuth("admin", "pfsense"),
+        option.WithHTTPClient(pfrest.TLSClient(true)),
+    )
+
+    resp, err := c.System.GetSystemVersionEndpoint(context.Background())
     if err != nil {
         log.Fatal(err)
     }
-
-    ctx := context.Background()
-    resp, err := client.Raw().GetSystemVersionEndpointWithResponse(ctx)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    if resp.JSON200 != nil && resp.JSON200.Data != nil {
-        fmt.Printf("pfSense version: %s\n", *resp.JSON200.Data.Version)
+    if resp.Data != nil && resp.Data.Version != nil {
+        fmt.Printf("pfSense version: %s\n", *resp.Data.Version)
     }
 }
 ```
 
 ## Authentication
 
-Three methods are supported. Provide exactly one:
-
 ```go
 // Basic Auth
-cfg := pfrest.Config{
-    BaseURL: "192.168.1.1",
-    BasicAuth: &pfrest.BasicAuthConfig{
-        Username: "admin",
-        Password: "pfsense",
-    },
-}
+c := client.NewClient(
+    option.WithBaseURL("https://192.168.1.1"),
+    option.WithBasicAuth("admin", "pfsense"),
+)
 
 // API Key
-cfg := pfrest.Config{
-    BaseURL: "192.168.1.1",
-    APIKey:  "your-api-key",
-}
+c := client.NewClient(
+    option.WithBaseURL("https://192.168.1.1"),
+    option.WithAPIKey("your-api-key"),
+)
 
-// JWT Bearer Token
-cfg := pfrest.Config{
-    BaseURL:  "192.168.1.1",
-    JWTToken: "your-jwt-token",
-}
+// JWT Bearer Token (obtain via c.Auth.PostAuthJwtEndpoint first)
+c := client.NewClient(
+    option.WithBaseURL("https://192.168.1.1"),
+    option.WithHTTPHeader(http.Header{
+        "Authorization": []string{"Bearer " + token},
+    }),
+)
 ```
-
-The `BaseURL` automatically prepends `https://` if no scheme is provided.
 
 ## Usage
 
-All 677 generated operations are accessible via `client.Raw()`, which returns the oapi-codegen `ClientWithResponses`:
+The client is organized by service — each pfSense subsystem has its own sub-client:
 
 ```go
-// List firewall rules
-resp, _ := client.Raw().GetFirewallRulesEndpointWithResponse(ctx, nil)
-
-// Get system status
-resp, _ := client.Raw().GetStatusSystemEndpointWithResponse(ctx)
-
-// Restart a service
-client.Raw().PostStatusServiceEndpointWithResponse(ctx, api.PostStatusServiceEndpointJSONRequestBody{
-    Name:   ptr("unbound"),
-    Action: ptr(api.PostStatusServiceEndpointJSONBodyActionRestart),
-})
+c.Firewall.GetFirewallRulesEndpoint(ctx, &pfclientapi.GetFirewallRulesEndpointRequest{})
+c.Status.GetStatusSystemEndpoint(ctx)
+c.System.GetSystemVersionEndpoint(ctx)
+c.Diagnostics.GetDiagnosticsArpTableEndpoint(ctx, &pfclientapi.GetDiagnosticsArpTableEndpointRequest{})
+c.Services.GetServicesUnboundSettingsEndpoint(ctx)
 ```
 
 ## Error Handling
 
-Two approaches:
-
-**Typed responses** — check each status code field directly:
+Errors are returned as typed Go errors. Non-2xx responses are automatically parsed:
 
 ```go
-resp, err := client.Raw().GetFirewallRulesEndpointWithResponse(ctx, nil)
-if resp.JSON200 != nil {
-    // success
-}
-if resp.JSON400 != nil {
-    // validation error with typed fields
-    fmt.Println(resp.JSON400.Message)
+resp, err := c.Firewall.GetFirewallRulesEndpoint(ctx, &pfclientapi.GetFirewallRulesEndpointRequest{})
+if err != nil {
+    // err contains status code and parsed error body
+    log.Fatal(err)
 }
 ```
 
-**Convenience helper** — parse any non-2xx into `*pfrest.APIError`:
+## Retries
+
+Built-in retry with exponential backoff:
 
 ```go
-if err := pfrest.CheckResponse(resp.HTTPResponse); err != nil {
-    var apiErr *pfrest.APIError
-    if errors.As(err, &apiErr) {
-        fmt.Println(apiErr.ResponseID) // e.g. "FIREWALL_ALIAS_NAME_EXISTS"
-    }
-}
+c := client.NewClient(
+    option.WithBaseURL("https://192.168.1.1"),
+    option.WithBasicAuth("admin", "pfsense"),
+    option.WithMaxAttempts(3),
+)
 ```
 
 ## TLS
 
-pfSense typically uses self-signed certificates. Set `InsecureSkipVerify: true` or provide a custom `*http.Client`:
+pfSense typically uses self-signed certificates. Use the `TLSClient` helper:
 
 ```go
-cfg := pfrest.Config{
-    BaseURL:            "192.168.1.1",
-    InsecureSkipVerify: true,
-    // OR
-    HTTPClient: yourCustomClient,
-}
+c := client.NewClient(
+    option.WithBaseURL("https://192.168.1.1"),
+    option.WithBasicAuth("admin", "pfsense"),
+    option.WithHTTPClient(pfrest.TLSClient(true)), // skip TLS verification
+)
 ```
 
 ## Examples
@@ -145,35 +123,27 @@ See the [examples/](examples/) directory:
 | `basic-auth` | Connect with basic auth, list firewall rules |
 | `api-key` | Connect with API key, get system version |
 | `jwt-auth` | Obtain JWT token, then use it for subsequent calls |
-| `firewall` | List firewall rules with details |
-| `services` | List all services with status |
+| `firewall` | List firewall rules with type, protocol, interface |
+| `services` | List all services with running status |
 | `status` | System info, DHCP leases, ARP table |
 
 Run an example:
 
 ```bash
-go run ./examples/basic-auth -url 192.168.1.1:10443 -user admin -pass pfsense
+go run ./examples/basic-auth -url https://192.168.1.1:10443 -user admin -pass pfsense -insecure
 ```
 
 ## Development
 
-Requires [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) v2.5.1 and [Task](https://taskfile.dev).
+Requires [Fern CLI](https://docs.buildwithfern.com/), Python 3, and [Task](https://taskfile.dev).
 
 ```bash
-# Regenerate from OpenAPI spec
-task generate
-
-# Run tests
-task test
-
-# Lint
-task lint
-
-# Build everything
-task build
+task generate   # Clean spec + Fern codegen + patch
+task test       # Run tests
+task lint       # Run golangci-lint
+task build      # Build all packages and examples
+task check      # All of the above
 ```
-
-The spec preprocessor (`tools/specprep`) simplifies the raw 11MB OpenAPI spec to eliminate allOf/oneOf compositions in error responses that cause oapi-codegen to hang.
 
 ## License
 

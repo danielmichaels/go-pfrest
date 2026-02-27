@@ -1,32 +1,20 @@
-// Package pfrest provides a Go client for the pfSense REST API v2.
+// Package pfrest provides helpers for the pfSense REST API Go client.
 //
-// The client is generated from the pfSense REST API v2.7.2 OpenAPI specification
-// using oapi-codegen and covers all 258 endpoints (677 operations).
+// The generated client lives in the pkg/client sub-module. Import it directly:
 //
-// Three authentication methods are supported: HTTP Basic Auth, API Key, and JWT
-// Bearer Token.
+//	import (
+//		"github.com/danielmichaels/go-pfrest/pkg/client/client"
+//		"github.com/danielmichaels/go-pfrest/pkg/client/option"
+//	)
 //
-// Quick start:
+//	c := client.NewClient(
+//		option.WithBaseURL("https://pfsense.local"),
+//		option.WithBasicAuth("admin", "password"),
+//		option.WithHTTPClient(pfrest.TLSClient(true)),
+//	)
 //
-//	client, err := pfrest.NewClient(pfrest.Config{
-//	    BaseURL:            "https://pfsense.local",
-//	    InsecureSkipVerify: true,
-//	    BasicAuth: &pfrest.BasicAuthConfig{
-//	        Username: "admin",
-//	        Password: "pfsense",
-//	    },
-//	})
+//	rules, err := c.Firewall.GetFirewallRulesEndpoint(ctx, &pfclientapi.GetFirewallRulesEndpointRequest{})
 //
-// Access all generated operations via the Raw() method:
-//
-//	resp, err := client.Raw().GetFirewallRulesEndpointWithResponse(ctx)
-//
-// Error handling supports both typed responses and convenience checking:
-//
-//	if resp.JSON200 != nil {
-//	    // Success — use typed data
-//	}
-//	if resp.JSON400 != nil {
-//	    // Validation error — typed error response
-//	}
+// This root package provides [TLSClient] for the common pfSense self-signed
+// certificate scenario. Pass the result to option.WithHTTPClient.
 package pfrest

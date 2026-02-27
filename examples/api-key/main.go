@@ -7,7 +7,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/danielmichaels/go-pfrest"
+	pfrest "github.com/danielmichaels/go-pfrest"
+	client "github.com/danielmichaels/go-pfrest/pkg/client/client"
+	"github.com/danielmichaels/go-pfrest/pkg/client/option"
 )
 
 func main() {
@@ -21,30 +23,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	client, err := pfrest.NewClient(pfrest.Config{
-		BaseURL:            *url,
-		InsecureSkipVerify: *insecure,
-		APIKey:             *apiKey,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+	c := client.NewClient(
+		option.WithBaseURL(*url),
+		option.WithAPIKey(*apiKey),
+		option.WithHTTPClient(pfrest.TLSClient(*insecure)),
+	)
 
 	ctx := context.Background()
-	resp, err := client.Raw().GetSystemVersionEndpointWithResponse(ctx)
+	resp, err := c.System.GetSystemVersionEndpoint(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := pfrest.CheckResponse(resp.HTTPResponse); err != nil {
-		log.Fatal(err)
-	}
-
-	if resp.JSON200 != nil && resp.JSON200.Data != nil {
-		data := resp.JSON200.Data
+	if resp.Data != nil {
 		version := "<unknown>"
-		if data.Version != nil {
-			version = *data.Version
+		if resp.Data.Version != nil {
+			version = *resp.Data.Version
 		}
 		fmt.Printf("pfSense version: %s\n", version)
 	}

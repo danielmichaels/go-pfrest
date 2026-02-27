@@ -34,20 +34,27 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install oapi-codegen
-        run: go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Run specprep
-        run: go run ./tools/specprep specs/v2.7/openapi.json specs/v2.7/openapi-processed.json
+      - name: Install Fern CLI
+        run: npm install -g fern-api
 
-      - name: Generate types
-        run: oapi-codegen --config api/oapi-types.cfg.yaml specs/v2.7/openapi-processed.json
+      - name: Clean spec
+        run: python3 tools/specclean/clean_pfsense_spec.py specs/v2.7/openapi.json specs/v2.7/openapi-clean.json
 
       - name: Generate client
-        run: oapi-codegen --config api/oapi-client.cfg.yaml specs/v2.7/openapi-processed.json
+        run: cd fern && fern generate --local
+
+      - name: Patch generated code
+        run: sed -i 's/r\.Username+": "+r\.Password/r.Username+":"+r.Password/g' pkg/client/core/request_option.go
+
+      - name: Remove generated go.mod
+        run: rm -f pkg/client/go.mod pkg/client/go.sum
 
       - name: Check no diff
-        run: git diff --exit-code api/
+        run: git diff --exit-code pkg/client/
 
   lint:
     runs-on: ubuntu-latest
