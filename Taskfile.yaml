@@ -8,6 +8,8 @@ tasks:
       - cmd: fern generate --local
         dir: fern
       - task: generate:patch
+      - rm -f pkg/client/go.mod pkg/client/go.sum
+      - go mod tidy
 
   generate:patch:
     desc: Patch Fern-generated code for known issues

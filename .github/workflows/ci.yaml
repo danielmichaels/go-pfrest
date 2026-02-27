@@ -50,6 +50,9 @@ jobs:
       - name: Patch generated code
         run: sed -i 's/r\.Username+": "+r\.Password/r.Username+":"+r.Password/g' pkg/client/core/request_option.go
 
+      - name: Remove generated go.mod
+        run: rm -f pkg/client/go.mod pkg/client/go.sum
+
       - name: Check no diff
         run: git diff --exit-code pkg/client/
 
