@@ -28,3 +28,6 @@ Thumbs.db
 
 # Processed spec (regenerated from source)
 specs/v2.7/openapi-processed.json
+
+# Worktrees
+.worktrees/
