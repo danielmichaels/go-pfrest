@@ -5,10 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
-	"github.com/danielmichaels/go-pfrest"
-	"github.com/danielmichaels/go-pfrest/api"
+	pfrest "github.com/danielmichaels/go-pfrest"
+	pfclientapi "github.com/danielmichaels/go-pfrest/pkg/client"
+	client "github.com/danielmichaels/go-pfrest/pkg/client/client"
+	"github.com/danielmichaels/go-pfrest/pkg/client/option"
 )
 
 func main() {
@@ -24,54 +27,41 @@ func main() {
 	}
 
 	ctx := context.Background()
+	httpClient := pfrest.TLSClient(*insecure)
 
-	basicClient, err := pfrest.NewClient(pfrest.Config{
-		BaseURL:            *url,
-		InsecureSkipVerify: *insecure,
-		BasicAuth: &pfrest.BasicAuthConfig{
-			Username: *user,
-			Password: *pass,
-		},
-	})
+	basicClient := client.NewClient(
+		option.WithBaseURL(*url),
+		option.WithBasicAuth(*user, *pass),
+		option.WithHTTPClient(httpClient),
+	)
+
+	tokenResp, err := basicClient.Auth.PostAuthJwtEndpoint(ctx, &pfclientapi.PostAuthJwtEndpointRequest{})
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	tokenResp, err := basicClient.Raw().PostAuthJWTEndpointWithResponse(ctx, api.PostAuthJWTEndpointJSONRequestBody{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := pfrest.CheckResponse(tokenResp.HTTPResponse); err != nil {
-		log.Fatal(err)
-	}
-
-	if tokenResp.JSON200 == nil || tokenResp.JSON200.Data == nil || tokenResp.JSON200.Data.Token == nil {
+	if tokenResp.Data == nil || tokenResp.Data.Token == nil {
 		log.Fatal("no JWT token in response")
 	}
-	token := *tokenResp.JSON200.Data.Token
+	token := *tokenResp.Data.Token
 	fmt.Printf("JWT token obtained (length=%d)\n", len(token))
 
-	jwtClient, err := pfrest.NewClient(pfrest.Config{
-		BaseURL:            *url,
-		InsecureSkipVerify: *insecure,
-		JWTToken:           token,
-	})
+	jwtClient := client.NewClient(
+		option.WithBaseURL(*url),
+		option.WithHTTPClient(httpClient),
+		option.WithHTTPHeader(http.Header{
+			"Authorization": []string{"Bearer " + token},
+		}),
+	)
+
+	versionResp, err := jwtClient.System.GetSystemVersionEndpoint(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	versionResp, err := jwtClient.Raw().GetSystemVersionEndpointWithResponse(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := pfrest.CheckResponse(versionResp.HTTPResponse); err != nil {
-		log.Fatal(err)
-	}
-
-	if versionResp.JSON200 != nil && versionResp.JSON200.Data != nil {
+	if versionResp.Data != nil {
 		version := "<unknown>"
-		if versionResp.JSON200.Data.Version != nil {
-			version = *versionResp.JSON200.Data.Version
+		if versionResp.Data.Version != nil {
+			version = *versionResp.Data.Version
 		}
 		fmt.Printf("pfSense version (via JWT): %s\n", version)
 	}

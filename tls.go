@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func tlsClient(skipVerify bool) *http.Client {
+func TLSClient(skipVerify bool) *http.Client {
 	if !skipVerify {
 		return http.DefaultClient
 	}

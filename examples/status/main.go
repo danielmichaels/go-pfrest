@@ -7,7 +7,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/danielmichaels/go-pfrest"
+	pfrest "github.com/danielmichaels/go-pfrest"
+	pfclientapi "github.com/danielmichaels/go-pfrest/pkg/client"
+	client "github.com/danielmichaels/go-pfrest/pkg/client/client"
+	"github.com/danielmichaels/go-pfrest/pkg/client/option"
 )
 
 func main() {
@@ -23,36 +26,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := pfrest.Config{
-		BaseURL:            *url,
-		InsecureSkipVerify: *insecure,
+	opts := []option.RequestOption{
+		option.WithBaseURL(*url),
+		option.WithHTTPClient(pfrest.TLSClient(*insecure)),
 	}
 	switch {
 	case *apiKey != "":
-		cfg.APIKey = *apiKey
+		opts = append(opts, option.WithAPIKey(*apiKey))
 	case *pass != "":
-		cfg.BasicAuth = &pfrest.BasicAuthConfig{Username: *user, Password: *pass}
+		opts = append(opts, option.WithBasicAuth(*user, *pass))
 	default:
 		log.Fatal("provide -api-key or -pass for authentication")
 	}
 
-	client, err := pfrest.NewClient(cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	c := client.NewClient(opts...)
 	ctx := context.Background()
 
 	fmt.Println("=== System Status ===")
-	sysResp, err := client.Raw().GetStatusSystemEndpointWithResponse(ctx)
+	sysResp, err := c.Status.GetStatusSystemEndpoint(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := pfrest.CheckResponse(sysResp.HTTPResponse); err != nil {
-		log.Fatal(err)
-	}
-	if sysResp.JSON200 != nil && sysResp.JSON200.Data != nil {
-		s := sysResp.JSON200.Data
+	if sysResp.Data != nil {
+		s := sysResp.Data
 		if s.Platform != nil {
 			fmt.Printf("  Platform:  %s\n", *s.Platform)
 		}
@@ -77,58 +73,46 @@ func main() {
 	}
 
 	fmt.Println("\n=== DHCP Leases ===")
-	dhcpResp, err := client.Raw().GetStatusDHCPServerLeasesEndpointWithResponse(ctx, nil)
+	dhcpResp, err := c.Status.GetStatusDhcpServerLeasesEndpoint(ctx, &pfclientapi.GetStatusDhcpServerLeasesEndpointRequest{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := pfrest.CheckResponse(dhcpResp.HTTPResponse); err != nil {
-		log.Fatal(err)
-	}
-	if dhcpResp.JSON200 != nil && dhcpResp.JSON200.Data != nil {
-		leases := *dhcpResp.JSON200.Data
-		fmt.Printf("  Total leases: %d\n", len(leases))
-		for _, l := range leases {
-			ip := ""
-			if l.IP != nil {
-				ip = *l.IP
-			}
-			mac := ""
-			if l.Mac != nil {
-				mac = *l.Mac
-			}
-			hostname := ""
-			if l.Hostname != nil {
-				hostname = *l.Hostname
-			}
-			fmt.Printf("  %-16s %-18s %s\n", ip, mac, hostname)
+	fmt.Printf("  Total leases: %d\n", len(dhcpResp.Data))
+	for _, l := range dhcpResp.Data {
+		ip := ""
+		if l.IP != nil {
+			ip = *l.IP
 		}
+		mac := ""
+		if l.Mac != nil {
+			mac = *l.Mac
+		}
+		hostname := ""
+		if l.Hostname != nil {
+			hostname = *l.Hostname
+		}
+		fmt.Printf("  %-16s %-18s %s\n", ip, mac, hostname)
 	}
 
 	fmt.Println("\n=== ARP Table ===")
-	arpResp, err := client.Raw().GetDiagnosticsARPTableEndpointWithResponse(ctx, nil)
+	arpResp, err := c.Diagnostics.GetDiagnosticsArpTableEndpoint(ctx, &pfclientapi.GetDiagnosticsArpTableEndpointRequest{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := pfrest.CheckResponse(arpResp.HTTPResponse); err != nil {
-		log.Fatal(err)
-	}
-	if arpResp.JSON200 != nil && arpResp.JSON200.Data != nil {
-		entries := *arpResp.JSON200.Data
-		fmt.Printf("  Total entries: %d\n", len(entries))
-		for _, e := range entries {
-			ip := ""
-			if e.IPAddress != nil {
-				ip = *e.IPAddress
-			}
-			mac := ""
-			if e.MacAddress != nil {
-				mac = *e.MacAddress
-			}
-			iface := ""
-			if e.Interface != nil {
-				iface = *e.Interface
-			}
-			fmt.Printf("  %-16s %-18s %s\n", ip, mac, iface)
+	fmt.Printf("  Total entries: %d\n", len(arpResp.Data))
+	for _, e := range arpResp.Data {
+		ip := ""
+		if e.IPAddress != nil {
+			ip = *e.IPAddress
 		}
+		mac := ""
+		if e.MacAddress != nil {
+			mac = *e.MacAddress
+		}
+		iface := ""
+		if e.Interface != nil {
+			iface = *e.Interface
+		}
+		fmt.Printf("  %-16s %-18s %s\n", ip, mac, iface)
 	}
 }

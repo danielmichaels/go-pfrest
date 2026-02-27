@@ -1,7 +1,0 @@
-package: api
-output: api/client.gen.go
-generate:
-  client: true
-output-options:
-  name-normalizer: ToCamelCaseWithInitialisms
-  client-type-name: PfClient

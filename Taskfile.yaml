@@ -2,11 +2,20 @@ version: "3"
 
 tasks:
   generate:
-    desc: Run spec preprocessor and oapi-codegen
+    desc: Clean spec, run Fern code generation, and apply patches
     cmds:
-      - go run ./tools/specprep specs/v2.7/openapi.json specs/v2.7/openapi-processed.json
-      - oapi-codegen --config api/oapi-types.cfg.yaml specs/v2.7/openapi-processed.json
-      - oapi-codegen --config api/oapi-client.cfg.yaml specs/v2.7/openapi-processed.json
+      - python3 tools/specclean/clean_pfsense_spec.py specs/v2.7/openapi.json specs/v2.7/openapi-clean.json
+      - cmd: fern generate --local
+        dir: fern
+      - task: generate:patch
+
+  generate:patch:
+    desc: Patch Fern-generated code for known issues
+    cmds:
+      - |
+        # Fix Basic Auth header format - remove space between username and password
+        # See: https://github.com/fern-api/fern/issues/6510
+        sed -i '' 's/r\.Username+": "+r\.Password/r.Username+":"+r.Password/g' pkg/client/core/request_option.go
 
   lint:
     desc: Run golangci-lint
@@ -27,8 +36,8 @@ tasks:
   clean:
     desc: Remove generated files
     cmds:
-      - rm -f api/types.gen.go api/client.gen.go
-      - rm -f specs/v2.7/openapi-processed.json
+      - rm -rf pkg/client/
+      - rm -f specs/v2.7/openapi-clean.json
 
   check:
     desc: Run lint, test, and build

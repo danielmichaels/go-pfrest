@@ -26,8 +26,8 @@ go.work.sum
 .DS_Store
 Thumbs.db
 
-# Processed spec (regenerated from source)
-specs/v2.7/openapi-processed.json
+# Cleaned spec (regenerated from source by specclean)
+specs/v2.7/openapi-clean.json
 
 # Worktrees
 .worktrees/
