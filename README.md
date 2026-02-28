@@ -1,5 +1,8 @@
 # go-pfrest
 
+> [!WARNING]
+> In development; not ready for production use.
+
 Go SDK for the [pfSense REST API](https://github.com/jaredhendrickson13/pfsense-api) v2.
 
 Generated from the pfSense REST API v2.7.2 OpenAPI specification using [Fern](https://buildwithfern.com). Provides modular, per-service clients with built-in retries and typed errors.
