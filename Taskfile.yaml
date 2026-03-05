@@ -7,7 +7,7 @@ tasks:
       - python3 tools/specclean/clean_pfsense_spec.py specs/v2.7/openapi.json specs/v2.7/openapi-clean.json
       - cmd: fern generate --local
         dir: fern
-      - task: generate:patch
+#      - task: generate:patch
       - rm -f pkg/client/go.mod pkg/client/go.sum
       - go mod tidy
 

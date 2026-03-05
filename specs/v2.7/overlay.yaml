@@ -1,0 +1,12 @@
+overlay: 1.0.0
+info:
+  title: pfSense REST API spec patches
+  version: 0.0.1
+actions:
+  # postStatusServiceEndpoint: id is marked required in the upstream spec but
+  # the API accepts requests without it (e.g. service identified by name).
+  # Removing required causes Fern to generate *int with omitempty.
+  - target: "$.paths['/api/v2/status/service'].post.requestBody.content['application/json'].schema.allOf[0].required"
+    remove: true
+  - target: "$.paths['/api/v2/status/service'].post.requestBody.content['application/x-www-form-urlencoded'].schema.allOf[0].required"
+    remove: true

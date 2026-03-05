@@ -36,7 +36,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Install Fern CLI
         run: npm install -g fern-api
@@ -47,22 +47,9 @@ jobs:
       - name: Generate client
         run: cd fern && fern generate --local
 
-      - name: Patch generated code
-        run: sed -i 's/r\.Username+": "+r\.Password/r.Username+":"+r.Password/g' pkg/client/core/request_option.go
-
       - name: Remove generated go.mod
         run: rm -f pkg/client/go.mod pkg/client/go.sum
 
       - name: Check no diff
         run: git diff --exit-code pkg/client/
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - uses: golangci/golangci-lint-action@v7

@@ -384,7 +384,7 @@ type PostStatusServiceEndpointRequest struct {
 	// Indicates if the service is actively running.<br>
 	Status *bool `json:"status,omitempty"`
 	// The ID of the object or resource to interact with.
-	ID int `json:"id"`
+	ID *int `json:"id,omitempty"`
 }
 
 type AuthLog struct {

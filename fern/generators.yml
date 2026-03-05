@@ -1,6 +1,7 @@
 api:
   specs:
     - openapi: ../specs/v2.7/openapi-clean.json
+      overlays: ../specs/v2.7/overlay.yaml
 default-group: local
 groups:
   local:

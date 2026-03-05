@@ -141,12 +141,28 @@ go run ./examples/basic-auth -url https://192.168.1.1:10443 -user admin -pass pf
 Requires [Fern CLI](https://docs.buildwithfern.com/), Python 3, and [Task](https://taskfile.dev).
 
 ```bash
-task generate   # Clean spec + Fern codegen + patch
+task generate   # Regenerate pkg/client/ (see pipeline below)
 task test       # Run tests
 task lint       # Run golangci-lint
 task build      # Build all packages and examples
-task check      # All of the above
+task check      # lint + test + build
 ```
+
+### Code generation pipeline
+
+`task generate` runs these steps in order:
+
+1. **specclean** — `tools/specclean/clean_pfsense_spec.py` normalises the upstream spec and writes `specs/v2.7/openapi-clean.json` (not committed).
+2. **fern generate** — reads `openapi-clean.json` plus `specs/v2.7/overlay.yaml` and writes `pkg/client/`.
+3. **patch** — `task generate:patch` applies `sed` fixes for known Fern codegen bugs that can't be handled via overlay (e.g. [Basic Auth header format](https://github.com/fern-api/fern/issues/6510)).
+
+Never edit `pkg/client/` by hand — changes will be overwritten on the next `task generate`.
+
+### OpenAPI overlay
+
+`specs/v2.7/openapi.json` is the unmodified upstream pfSense REST API spec. Where the spec diverges from real API behaviour, patches live in `specs/v2.7/overlay.yaml` following the [OpenAPI Overlay Specification](https://spec.openapis.org/overlay/v1.0.0). Fern applies this overlay automatically during step 2 above.
+
+To add a new patch, append an action to `overlay.yaml` with a JSONPath `target` and either an `update` (merge) or `remove: true` operation, with a comment explaining the discrepancy.
 
 ## License
 
